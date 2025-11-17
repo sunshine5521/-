@@ -4,9 +4,11 @@
     <el-table :data="parkingLots" border style="width: 100%">
       <el-table-column prop="id" label="ID"></el-table-column>
       <el-table-column prop="name" label="名称"></el-table-column>
-      <el-table-column prop="location_gps" label="GPS坐标"></el-table-column>
-      <el-table-column prop="capacity" label="总车位"></el-table-column>
-      <el-table-column prop="free_spaces" label="空闲车位"></el-table-column>
+      <el-table-column prop="location" label="地址"></el-table-column>
+      <el-table-column prop="gps_coordinates" label="GPS坐标"></el-table-column>
+      <el-table-column prop="total_spaces" label="总车位"></el-table-column>
+      <el-table-column prop="hourly_rate" label="小时费率"></el-table-column>
+      <el-table-column prop="available_spaces" label="空闲车位"></el-table-column>
       <el-table-column label="操作">
         <template #default="scope">
           <el-button type="primary" @click="viewSpace(scope.row.id)">查看车位</el-button>

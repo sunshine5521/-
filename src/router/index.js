@@ -15,7 +15,7 @@ import DataAnalysis from '../views/Admin/DataAnalysis.vue'
 
 // 路由规则配置
 const routes = [
-  { path: '/', redirect: '/login' }, // 根路径自动跳转到登录页
+  { path: '/', redirect: '/parking-lots' }, // 根路径自动跳转到停车场列表页
   { path: '/login', component: Login }, // 登录页
   { path: '/register', component: Register }, // 注册页
   

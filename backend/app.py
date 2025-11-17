@@ -32,7 +32,8 @@ def init_db():
                     location TEXT NOT NULL,
                     gps_coordinates TEXT NOT NULL,
                     total_spaces INTEGER NOT NULL,
-                    available_spaces INTEGER NOT NULL
+                    available_spaces INTEGER NOT NULL,
+                    hourly_rate REAL NOT NULL
                 )''')
     # Create vehicles table
     conn.execute('''CREATE TABLE IF NOT EXISTS vehicles (
@@ -42,6 +43,14 @@ def init_db():
                     brand TEXT NOT NULL,
                     color TEXT NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users (id)
+                )''')
+    # Create parking spaces table
+    conn.execute('''CREATE TABLE IF NOT EXISTS parking_spaces (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    parking_lot_id INTEGER NOT NULL,
+                    space_number TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'free',
+                    FOREIGN KEY (parking_lot_id) REFERENCES parking_lots (id)
                 )''')
     # Create reservations table
     conn.execute('''CREATE TABLE IF NOT EXISTS reservations (
@@ -53,10 +62,17 @@ def init_db():
                     start_time TEXT NOT NULL,
                     end_time TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'pending',
+                    total_cost REAL,
                     FOREIGN KEY (user_id) REFERENCES users (id),
                     FOREIGN KEY (parking_lot_id) REFERENCES parking_lots (id),
+                    FOREIGN KEY (parking_space_id) REFERENCES parking_spaces (id),
                     FOREIGN KEY (vehicle_id) REFERENCES vehicles (id)
                 )''')
+    # Add total_cost column if not exists
+    try:
+        conn.execute('ALTER TABLE reservations ADD COLUMN total_cost REAL;')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     # Create parking records table
     conn.execute('''CREATE TABLE IF NOT EXISTS parking_records (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,35 +100,56 @@ def init_db():
                     FOREIGN KEY (vehicle_id) REFERENCES vehicles (id),
                     FOREIGN KEY (parking_lot_id) REFERENCES parking_lots (id)
                 )''')
-    # Insert sample parking lots
-    conn.execute('''INSERT OR IGNORE INTO parking_lots (name, location, gps_coordinates, total_spaces, available_spaces)
-                    VALUES ('中央停车场', '市中心', '116.4074,39.9042', 100, 50),
-                           ('商业中心停车场', '商业区', '116.4074,39.9042', 200, 100),
-                           ('机场停车场', '机场', '116.4074,39.9042', 500, 200)''')
+    # Insert sample parking lots only if table is empty
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM parking_lots')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO parking_lots (name, location, gps_coordinates, total_spaces, available_spaces, hourly_rate)
+                        VALUES ('中央停车场', '市中心', '116.4074,39.9042', 100, 50, 5.0),
+                               ('商业中心停车场', '商业区', '116.4074,39.9042', 200, 100, 8.0),
+                               ('机场停车场', '机场', '116.4074,39.9042', 500, 200, 10.0)''')
     
-    # Insert sample users with SHA256 hashes
-    conn.execute('''INSERT OR IGNORE INTO users (username, password, role)
-                    VALUES ('admin', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 'admin'),
-                           ('user1', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'user'),
-                           ('user2', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'user')''')
+    # Insert sample users only if table is empty
+    cursor.execute('SELECT COUNT(*) FROM users')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO users (username, password, role)
+                        VALUES ('admin', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', 'admin'),
+                               ('user1', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'user'),
+                               ('user2', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'user')''')
     
-    # Insert sample vehicles
-    conn.execute('''INSERT OR IGNORE INTO vehicles (user_id, license_plate, brand, color)
-                    VALUES (2, '京A12345', 'Toyota', 'White'),
-                           (2, '京B67890', 'Honda', 'Black'),
-                           (3, '沪A11223', 'Volkswagen', 'Silver')''')
+    # Insert sample parking spaces only if table is empty
+    cursor.execute('SELECT COUNT(*) FROM parking_spaces')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO parking_spaces (parking_lot_id, space_number, status)
+                        VALUES (1, 'A001', 'free'),
+                               (1, 'A002', 'reserved'),
+                               (2, 'B001', 'free'),
+                               (2, 'B002', 'occupied'),
+                               (3, 'C001', 'free')''')
     
-    # Insert sample parking records
-    conn.execute('''INSERT OR IGNORE INTO parking_records (user_id, vehicle_id, parking_lot_id, entry_time, exit_time, cost)
-                    VALUES (2, 1, 1, '2023-10-01 10:00:00', '2023-10-01 12:30:00', 15.0),
-                           (2, 2, 2, '2023-10-02 08:00:00', '2023-10-02 17:30:00', 45.0),
-                           (3, 3, 3, '2023-10-03 14:00:00', '2023-10-03 18:00:00', 20.0)''')
+    # Insert sample vehicles only if table is empty
+    cursor.execute('SELECT COUNT(*) FROM vehicles')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO vehicles (user_id, license_plate, brand, color)
+                        VALUES (2, '京A12345', 'Toyota', 'White'),
+                               (2, '京B67890', 'Honda', 'Black'),
+                               (3, '沪A11223', 'Volkswagen', 'Silver')''')
     
-    # Insert sample violations
-    conn.execute('''INSERT OR IGNORE INTO violations (user_id, vehicle_id, parking_lot_id, violation_type, violation_time, status, fine_amount)
-                    VALUES (2, 1, 1, '乱停车', '2023-10-04 09:00:00', 'unpaid', 200.0),
-                           (2, 2, 2, '超时停车', '2023-10-05 12:00:00', 'paid', 100.0),
-                           (3, 3, 3, '违规占用残疾人车位', '2023-10-06 15:30:00', 'unpaid', 300.0)''')
+    # Insert sample parking records only if table is empty
+    cursor.execute('SELECT COUNT(*) FROM parking_records')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO parking_records (user_id, vehicle_id, parking_lot_id, entry_time, exit_time, cost)
+                        VALUES (2, 1, 1, '2023-10-01 10:00:00', '2023-10-01 12:30:00', 15.0),
+                               (2, 2, 2, '2023-10-02 08:00:00', '2023-10-02 17:30:00', 45.0),
+                               (3, 3, 3, '2023-10-03 14:00:00', '2023-10-03 18:00:00', 20.0)''')
+    
+    # Insert sample violations only if table is empty
+    cursor.execute('SELECT COUNT(*) FROM violations')
+    if cursor.fetchone()[0] == 0:
+        conn.execute('''INSERT INTO violations (user_id, vehicle_id, parking_lot_id, violation_type, violation_time, status, fine_amount)
+                        VALUES (2, 1, 1, '乱停车', '2023-10-04 09:00:00', 'unpaid', 200.0),
+                               (2, 2, 2, '超时停车', '2023-10-05 12:00:00', 'paid', 100.0),
+                               (3, 3, 3, '违规占用残疾人车位', '2023-10-06 15:30:00', 'unpaid', 300.0)''')
     
     conn.commit()
     conn.close()
@@ -165,8 +202,7 @@ def login():
     if hashed_password != user['password']:
         return jsonify({'code': 401, 'message': '密码错误'}), 401
 
-    token = jwt.encode({'user_id': user['id'], 'role': user['role'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)},
-                      app.config['SECRET_KEY'], algorithm='HS256')
+    token = jwt.encode({'user_id': user['id'], 'role': user['role'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)}, app.config['SECRET_KEY'], algorithm='HS256')
 
     return jsonify({'code': 200, 'data': {'token': token, 'user_id': user['id'], 'role': user['role']}})
 
@@ -315,6 +351,30 @@ def get_parking_lots():
     except jwt.InvalidTokenError:
         return jsonify({'code': 401, 'message': '无效的token'}), 401
 
+# Get parking spaces
+@app.route('/api/parking/spaces', methods=['GET'])
+def get_parking_spaces():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'code': 401, 'message': '未提供token'}), 401
+
+    try:
+        jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
+
+        lot_id = request.args.get('lot_id')
+        conn = get_db_connection()
+        if lot_id:
+            parking_spaces = conn.execute('SELECT * FROM parking_spaces WHERE parking_lot_id = ?', (lot_id,)).fetchall()
+        else:
+            parking_spaces = conn.execute('SELECT * FROM parking_spaces').fetchall()
+        conn.close()
+
+        return jsonify({'code': 200, 'data': [dict(space) for space in parking_spaces]})
+    except jwt.ExpiredSignatureError:
+        return jsonify({'code': 401, 'message': 'token已过期'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'code': 401, 'message': '无效的token'}), 401
+
 # Get parking records
 @app.route('/api/user/records', methods=['GET'])
 def get_parking_records():
@@ -415,6 +475,7 @@ def get_violations_paginated():
     try:
         decoded = jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
         user_id = decoded['user_id']
+        role = decoded['role']  # Get user role from token
         
         # Handle pagination parameters
         page = int(request.args.get('page', 1))
@@ -422,16 +483,29 @@ def get_violations_paginated():
         offset = (page - 1) * page_size
 
         conn = get_db_connection()
-        # Get paginated violations with vehicle details
-        violations = conn.execute('''
-            SELECT v.*, ve.license_plate, ve.brand, ve.color
-            FROM violations v
-            JOIN vehicles ve ON v.vehicle_id = ve.id
-            WHERE v.user_id = ?
-            LIMIT ? OFFSET ?
-        ''', (user_id, page_size, offset)).fetchall()
-        # Get total number of records
-        total = conn.execute('SELECT COUNT(*) FROM violations WHERE user_id = ?', (user_id,)).fetchone()[0]
+        
+        if role == 'admin':
+            # Admin sees all violations
+            violations = conn.execute('''
+                SELECT v.*, ve.license_plate, ve.brand, ve.color, pl.name as parking_lot_name
+                FROM violations v
+                JOIN vehicles ve ON v.vehicle_id = ve.id
+                JOIN parking_lots pl ON v.parking_lot_id = pl.id
+                LIMIT ? OFFSET ?
+            ''', (page_size, offset)).fetchall()
+            total = conn.execute('SELECT COUNT(*) FROM violations').fetchone()[0]
+        else:
+            # Regular user sees only their own violations
+            violations = conn.execute('''
+                SELECT v.*, ve.license_plate, ve.brand, ve.color, pl.name as parking_lot_name
+                FROM violations v
+                JOIN vehicles ve ON v.vehicle_id = ve.id
+                JOIN parking_lots pl ON v.parking_lot_id = pl.id
+                WHERE v.user_id = ?
+                LIMIT ? OFFSET ?
+            ''', (user_id, page_size, offset)).fetchall()
+            total = conn.execute('SELECT COUNT(*) FROM violations WHERE user_id = ?', (user_id,)).fetchone()[0]
+        
         conn.close()
 
         return jsonify({'code': 200, 'violations': [dict(violation) for violation in violations], 'total': total})
@@ -441,64 +515,7 @@ def get_violations_paginated():
         return jsonify({'code': 401, 'message': '无效的token'}), 401
 
 # Get parking spaces by lot ID
-@app.route('/api/parking/space', methods=['GET'])
-def get_parking_spaces():
-    token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({'code': 401, 'message': '未提供token'}), 401
 
-    try:
-        jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
-        lot_id = request.args.get('lot_id')
-
-        if not lot_id:
-            return jsonify({'code': 400, 'message': '未提供停车场ID'}), 400
-
-        # Generate mock parking spaces since there's no parking_spaces table in the database
-        conn = get_db_connection()
-        parking_lot = conn.execute('SELECT * FROM parking_lots WHERE id = ?', (lot_id,)).fetchone()
-        
-        if not parking_lot:
-            conn.close()
-            return jsonify({'code': 404, 'message': '停车场不存在'}), 404
-
-        parking_lot = dict(parking_lot)
-        total_spaces = parking_lot['total_spaces']
-        available_spaces = parking_lot['available_spaces']
-
-        # Get all reservations for this parking lot
-        reservations = conn.execute('''
-            SELECT parking_space_id, status
-            FROM reservations 
-            WHERE parking_lot_id = ?
-        ''', (lot_id,)).fetchall()
-        conn.close()
-
-        # Generate mock parking spaces
-        parking_spaces = []
-        for i in range(1, total_spaces + 1):
-            # Check if this space is reserved
-            reserved = any(reservation['parking_space_id'] == i and reservation['status'] == 'booked' for reservation in reservations)
-            
-            if reserved:
-                status = 'booked'
-            elif i <= available_spaces:
-                status = 'free'
-            else:
-                status = 'occupied'
-            
-            parking_spaces.append({
-                'id': i,
-                'number': str(i).zfill(3),
-                'status': status,
-                'parking_lot_id': lot_id
-            })
-
-        return jsonify({'code': 200, 'data': parking_spaces})
-    except jwt.ExpiredSignatureError:
-        return jsonify({'code': 401, 'message': 'token已过期'}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({'code': 401, 'message': '无效的token'}), 401
 
 # Create parking reservation
 @app.route('/api/reservation', methods=['POST'])
@@ -519,10 +536,22 @@ def create_reservation():
 
         conn = get_db_connection()
         try:
-            # 插入预订记录，状态为'booked'
-            conn.execute('''INSERT INTO reservations (user_id, parking_lot_id, parking_space_id, vehicle_id, start_time, end_time, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                        (user_id, parking_lot_id, parking_space_id, vehicle_id, start_time, end_time, 'booked'))
+            # 获取停车场的时薪
+            cursor = conn.execute('SELECT hourly_rate FROM parking_lots WHERE id = ?', (parking_lot_id,))
+            hourly_rate = cursor.fetchone()[0]
+
+            # 计算停车时长和总费用
+            # 使用datetime.strptime解析ISO格式日期（兼容旧版Python）
+            # 包含日期字符串末尾的'Z'字符在格式中
+            start_datetime = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+            end_datetime = datetime.datetime.strptime(end_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+            duration_hours = (end_datetime - start_datetime).total_seconds() / 3600
+            total_cost = duration_hours * hourly_rate
+
+            # 插入预订记录，状态为'booked'并包含总费用
+            conn.execute('''INSERT INTO reservations (user_id, parking_lot_id, parking_space_id, vehicle_id, start_time, end_time, status, total_cost)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                        (user_id, parking_lot_id, parking_space_id, vehicle_id, start_time, end_time, 'booked', total_cost))
             
             # 减少停车场的可用车位数量
             conn.execute('UPDATE parking_lots SET available_spaces = available_spaces - 1 WHERE id = ?', (parking_lot_id,))
@@ -535,6 +564,132 @@ def create_reservation():
             conn.rollback()
             conn.close()
             return jsonify({'code': 500, 'message': str(e)}), 500
+    except jwt.ExpiredSignatureError:
+        return jsonify({'code': 401, 'message': 'token已过期'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'code': 401, 'message': '无效的token'}), 401
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+# Add violation (admin only)
+@app.route('/api/violations', methods=['POST'])
+def add_violation():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'code': 401, 'message': '未提供token'}), 401
+
+    try:
+        decoded = jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
+        user_id = decoded['user_id']
+        role = decoded['role']
+
+        if role != 'admin':
+            return jsonify({'code': 403, 'message': '没有权限执行此操作'}), 403
+
+        data = request.get_json()
+        vehicle_license_plate = data.get('vehicle_license_plate')
+        parking_lot_id = data.get('parking_lot_id')
+        violation_type = data.get('violation_type')
+        violation_time = data.get('violation_time')
+        fine_amount = data.get('fine_amount')
+        description = data.get('description', '')
+        status = data.get('status', 'unpaid')
+
+        if not vehicle_license_plate or not parking_lot_id or not violation_type or not violation_time or fine_amount is None:
+            return jsonify({'code': 400, 'message': '缺少必要的参数'}), 400
+
+        conn = get_db_connection()
+
+        # Find vehicle by license plate
+        vehicle = conn.execute('SELECT id, user_id FROM vehicles WHERE license_plate = ?', (vehicle_license_plate,)).fetchone()
+        if not vehicle:
+            conn.close()
+            return jsonify({'code': 404, 'message': '车辆不存在'}), 404
+
+        vehicle_id = vehicle['id']
+        user_id = vehicle['user_id']
+
+        # Insert new violation
+        conn.execute('''INSERT INTO violations (user_id, vehicle_id, parking_lot_id, violation_type, violation_time, status, fine_amount)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (user_id, vehicle_id, parking_lot_id, violation_type, violation_time, status, fine_amount))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'code': 200, 'message': '违规记录添加成功'}), 200
+    except jwt.ExpiredSignatureError:
+        return jsonify({'code': 401, 'message': 'token已过期'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'code': 401, 'message': '无效的token'}), 401
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+# Edit violation (admin only)
+@app.route('/api/violations/<int:id>', methods=['PUT'])
+def edit_violation(id):
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'code': 401, 'message': '未提供token'}), 401
+
+    try:
+        decoded = jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
+        role = decoded['role']
+
+        if role != 'admin':
+            return jsonify({'code': 403, 'message': '没有权限执行此操作'}), 403
+
+        data = request.get_json()
+        parking_lot_id = data.get('parking_lot_id')
+        violation_type = data.get('violation_type')
+        violation_time = data.get('violation_time')
+        fine_amount = data.get('fine_amount')
+        status = data.get('status')
+
+        if not parking_lot_id or not violation_type or not violation_time or fine_amount is None or not status:
+            return jsonify({'code': 400, 'message': '缺少必要的参数'}), 400
+
+        conn = get_db_connection()
+
+        # Update violation
+        conn.execute('''UPDATE violations SET parking_lot_id = ?, violation_type = ?, violation_time = ?, fine_amount = ?, status = ?
+                        WHERE id = ?''',
+                    (parking_lot_id, violation_type, violation_time, fine_amount, status, id))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'code': 200, 'message': '违规记录更新成功'}), 200
+    except jwt.ExpiredSignatureError:
+        return jsonify({'code': 401, 'message': 'token已过期'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'code': 401, 'message': '无效的token'}), 401
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+# Delete violation (admin only)
+@app.route('/api/violations/<int:id>', methods=['DELETE'])
+def delete_violation(id):
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'code': 401, 'message': '未提供token'}), 401
+
+    try:
+        decoded = jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
+        role = decoded['role']
+
+        if role != 'admin':
+            return jsonify({'code': 403, 'message': '没有权限执行此操作'}), 403
+
+        conn = get_db_connection()
+
+        # Delete violation
+        conn.execute('DELETE FROM violations WHERE id = ?', (id,))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({'code': 200, 'message': '违规记录删除成功'}), 200
     except jwt.ExpiredSignatureError:
         return jsonify({'code': 401, 'message': 'token已过期'}), 401
     except jwt.InvalidTokenError:
@@ -571,6 +726,123 @@ def pay_violation(id):
     except jwt.InvalidTokenError:
         return jsonify({'code': 401, 'message': '无效的token'}), 401
 
+# Get admin statistics
+@app.route('/api/admin/statistics', methods=['GET'])
+def get_statistics():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({'code': 401, 'message': '未提供token'}), 401
+
+    try:
+        decoded = jwt.decode(token.split(' ')[1], app.config['SECRET_KEY'], algorithms=['HS256'])
+        role = decoded['role']
+        
+        if role != 'admin':
+            return jsonify({'code': 403, 'message': '无权限访问此资源'}), 403
+
+        time_range = request.args.get('time_range', 'today')
+        conn = get_db_connection()
+
+        # Calculate total parking lots
+        total_parking_lots = conn.execute('SELECT COUNT(*) FROM parking_lots').fetchone()[0]
+
+        # Calculate total spaces
+        total_spaces = conn.execute('SELECT SUM(total_spaces) FROM parking_lots').fetchone()[0] or 0
+
+        # Calculate current occupancy rate
+        current_occupancy = conn.execute('''
+            SELECT SUM(total_spaces - available_spaces) * 100.0 / SUM(total_spaces) 
+            FROM parking_lots 
+            WHERE total_spaces > 0
+        ''').fetchone()[0] or 0.0
+
+        # Calculate revenue based on time range
+        if time_range == 'today':
+            revenue = conn.execute('''
+                SELECT SUM(cost) 
+                FROM parking_records 
+                WHERE date(entry_time) = date('now')
+            ''').fetchone()[0] or 0.0
+        elif time_range == 'week':
+            revenue = conn.execute('''
+                SELECT SUM(cost) 
+                FROM parking_records 
+                WHERE entry_time BETWEEN datetime('now', '-7 days') AND datetime('now')
+            ''').fetchone()[0] or 0.0
+        elif time_range == 'month':
+            revenue = conn.execute('''
+                SELECT SUM(cost) 
+                FROM parking_records 
+                WHERE strftime('%Y-%m', entry_time) = strftime('%Y-%m', 'now')
+            ''').fetchone()[0] or 0.0
+        elif time_range == 'year':
+            revenue = conn.execute('''
+                SELECT SUM(cost) 
+                FROM parking_records 
+                WHERE strftime('%Y', entry_time) = strftime('%Y', 'now')
+            ''').fetchone()[0] or 0.0
+        else:
+            revenue = 0.0
+
+        # Get parking lot revenues
+        parking_lot_revenues = conn.execute('''
+            SELECT 
+                pl.id, 
+                pl.name, 
+                SUM(pr.cost) as revenue,
+                CASE 
+                    WHEN pl.total_spaces > 0 THEN (pl.total_spaces - pl.available_spaces) * 100.0 / pl.total_spaces
+                    ELSE 0
+                END as occupancy_rate
+            FROM parking_lots pl
+            LEFT JOIN parking_records pr ON pl.id = pr.parking_lot_id
+            GROUP BY pl.id
+            ORDER BY revenue DESC
+        ''').fetchall()
+        
+        parking_lot_revenues = [dict(item) for item in parking_lot_revenues]
+        for item in parking_lot_revenues:
+            item['revenue'] = round(item['revenue'] or 0.0, 2)
+            item['occupancy_rate'] = round(item['occupancy_rate'] or 0.0, 2)
+
+        # Get recent parking records
+        parking_records = conn.execute('''
+            SELECT 
+                pr.id, 
+                pl.name as parking_lot_name, 
+                pr.entry_time as start_time, 
+                pr.exit_time as end_time, 
+                pr.cost
+            FROM parking_records pr
+            JOIN parking_lots pl ON pr.parking_lot_id = pl.id
+            ORDER BY pr.entry_time DESC
+            LIMIT 10
+        ''').fetchall()
+        
+        parking_records = [dict(item) for item in parking_records]
+        for item in parking_records:
+            item['cost'] = round(item['cost'] or 0.0, 2)
+
+        conn.close()
+
+        return jsonify({
+            'code': 200,
+            'statistics': {
+                'total_parking_lots': total_parking_lots,
+                'total_spaces': total_spaces,
+                'occupancy_rate': round(current_occupancy, 2),
+                'today_revenue': round(revenue, 2)
+            },
+            'parking_lot_revenues': parking_lot_revenues,
+            'parking_records': parking_records
+        })
+    except jwt.ExpiredSignatureError:
+        return jsonify({'code': 401, 'message': 'token已过期'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'code': 401, 'message': '无效的token'}), 401
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)

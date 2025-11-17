@@ -223,7 +223,7 @@ const fetchViolations = async () => {
   params.append('page_size', pageSize.value)
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/admin/violations?${params.toString()}`, {
+    const response = await fetch('http://127.0.0.1:5000/api/violations?${params.toString()}', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -280,8 +280,8 @@ const submitForm = () => {
     if (valid) {
       const token = localStorage.getItem('token')
       const url = editingId.value
-        ? `http://127.0.0.1:5000/api/admin/violations/${editingId.value}`
-        : 'http://127.0.0.1:5000/api/admin/violations'
+        ? `http://127.0.0.1:5000/api/violations/${editingId.value}`
+        : 'http://127.0.0.1:5000/api/violations'
       const method = editingId.value ? 'PUT' : 'POST'
 
       fetch(url, {
@@ -332,7 +332,7 @@ const deleteViolation = async (id) => {
   const token = localStorage.getItem('token')
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/admin/violations/${id}`, {
+    const response = await fetch(`http://127.0.0.1:5000/api/violations/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`

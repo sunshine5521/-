@@ -31,9 +31,48 @@
 </template>
 
 <script>
-// 补充组件名称（多单词命名，符合ESLint规则）
 export default {
-  name: 'LoginForm'
+  name: 'LoginPage'
+}
+</script>
+
+<script setup>
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+
+const loginForm = ref({
+  username: '',
+  password: ''
+})
+const router = useRouter()
+
+const login = async () => {
+  try {
+    const trimmedForm = {
+      username: loginForm.value.username.trim(),
+      password: loginForm.value.password.trim()
+    }
+    const response = await fetch('http://127.0.0.1:5000/api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trimmedForm)
+    })
+    const data = await response.json()
+    if (data.code === 200) {
+        // 保存token、用户ID和角色到localStorage
+        localStorage.setItem('token', data.data.token)
+        localStorage.setItem('user_id', data.data.user_id)
+        localStorage.setItem('role', data.data.role || 'user')
+        ElMessage.success('登录成功')
+        // 跳转到首页
+        router.push('/')
+      } else {
+      ElMessage.error(data.message)
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，请重试')
+  }
 }
 </script>
 
@@ -105,134 +144,129 @@ export default {
   }
 }
 
-.login-title {
-  text-align: center;
-  font-size: 28px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #667eea;
-}
-
 .login-form {
   width: 100%;
 }
 
 .input-group {
   position: relative;
-  margin-bottom: 25px;
-  border: 1px solid #e0e0e0;
-  border-radius: 30px;
-  transition: all 0.3s ease;
-  background: #f8f9fa;
-}
-
-.input-group:hover, .input-group:focus-within {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  background: #fff;
+  margin-bottom: 20px;
 }
 
 .input-group i {
   position: absolute;
-  left: 20px;
+  left: 15px;
   top: 50%;
   transform: translateY(-50%);
-  color: #999;
+  color: #666;
   font-size: 18px;
 }
 
 .login-input {
-  border: none;
-  background: transparent;
-  padding: 15px 20px 15px 55px;
-  border-radius: 30px;
-  font-size: 16px;
   width: 100%;
-  color: #333;
+  padding-left: 45px;
+  height: 45px;
+  border: 1px solid #ddd;
+  border-radius: 25px;
+  font-size: 14px;
+  transition: all 0.3s ease;
 }
 
 .login-input:focus {
   outline: none;
-  box-shadow: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .login-button {
   width: 100%;
-  height: 50px;
-  border-radius: 30px;
-  font-size: 18px;
-  font-weight: bold;
+  height: 45px;
+  border-radius: 25px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-bottom: 20px;
 }
 
 .login-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-}
-
-.login-button:active {
-  transform: translateY(0);
 }
 
 .register-link {
   text-align: center;
-  color: #666;
+  margin-top: 20px;
   font-size: 14px;
+  color: #666;
 }
 
 .register-link span {
-  margin-right: 10px;
+  margin-right: 5px;
 }
 
 .register-link .el-button {
   color: #667eea;
-  font-weight: bold;
   padding: 0;
 }
 
 .register-link .el-button:hover {
-  color: #764ba2;
   text-decoration: underline;
 }
-</style>
 
-<script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+.login-animation {
+  margin-left: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50%;
+  height: 100vh;
+  position: relative;
+}
 
-const loginForm = ref({
-  username: '',
-  password: ''
-})
-const router = useRouter()
+.car-animation {
+  width: 200px;
+  height: 120px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  position: relative;
+  animation: carMove 3s ease-in-out infinite;
+}
 
-const login = async () => {
-  try {
-    const response = await fetch('http://127.0.0.1:5000/api/user/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginForm.value)
-    })
-    const data = await response.json()
-    if (data.code === 200) {
-      localStorage.setItem('token', data.data.token)
-      localStorage.setItem('user_id', data.data.user_id)
-      localStorage.setItem('role', data.data.role || 'user')
-      ElMessage.success('登录成功')
-      router.push('/parking-lots')
-    } else {
-      ElMessage.error(data.message)
-    }
-  } catch (error) {
-    ElMessage.error('网络错误，请重试')
+.car-animation::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 60px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.car-animation::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 20px;
+  width: 40px;
+  height: 30px;
+  background: #333;
+  border-radius: 5px;
+  box-shadow: 100px 0 0 #333;
+}
+
+@keyframes carMove {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+  75% {
+    transform: translateY(10px) rotate(-2deg);
   }
 }
-</script>
+</style>
