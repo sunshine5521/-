@@ -22,7 +22,7 @@ Ensure you have the following installed on your system:
 1. **Clone the repository**: 
    ```bash
    git clone https://github.com/sunshine5521/-.git
-   cd parking-frontend/parking-frontend
+   cd --master
    ```
 
 2. **Install frontend dependencies**: 
@@ -81,6 +81,7 @@ Open your web browser and visit `http://localhost:8080/` to access the parking m
 
 ### Administrative Functions
 - Parking lot management (add, edit, delete, update status)
+- Vehicle management (view, edit, delete user vehicles)
 - Violation management (record, process, generate fines)
 - Data analysis and reporting (occupancy rate, revenue statistics)
 
@@ -90,7 +91,6 @@ Open your web browser and visit `http://localhost:8080/` to access the parking m
 - **Vue.js 3.x** - Progressive JavaScript framework
 - **Vue Router** - Routing management
 - **Element Plus** - UI component library
-- **Axios** - HTTP client for API requests
 
 ### Backend
 - **Flask** - Python web framework
@@ -101,7 +101,7 @@ Open your web browser and visit `http://localhost:8080/` to access the parking m
 ## Project Structure
 
 ```
-parking-frontend/
+--master/
 ├── .gitignore              # Git ignore rules
 ├── README.md               # Project documentation
 ├── babel.config.js         # Babel configuration
@@ -123,8 +123,7 @@ parking-frontend/
 │       └── ParkingRecords.vue # Parking records page
 └── backend/                # Backend application
     ├── app.py             # Flask main application
-    ├── database.db        # SQLite database file
-    ├── parking.db         # Parking database (backup)
+    ├── parking.db         # SQLite database file
     ├── requirements.txt   # Python dependencies
     └── __pycache__/       # Python compiled files
 ```
@@ -133,7 +132,7 @@ parking-frontend/
 
 - The backend server must be running before starting the frontend server
 - The SQLite database will be automatically initialized with sample data if it doesn't exist
-- Default API endpoints are configured in `src/main.js`
+- Default API endpoints are configured in the code
 - For production deployment, follow the Vue.js and Flask deployment guides
 
 ## License
